@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>layui</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="../../../templates/lib/layui-v2.6.3/css/layui.css" media="all">
+    <link rel="stylesheet" href="../../../templates/css/public.css" media="all">
+</head>
+<body>
+<div class="layuimini-container">
+    <div class="layuimini-main">
+
+        <fieldset class="table-search-fieldset">
+            <legend>搜索信息</legend>
+            <div style="margin: 10px 10px 10px 10px">
+                <form class="layui-form layui-form-pane" action="/app/index/kcsj">
+                    <div class="layui-form-item">
+                           <div class="layui-inline"> <label class="layui-form-label">课程选择</label>
+           <div class="layui-input-inline">
+               <select name="searchkc" lay-verify="required" lay-filter="searchkc" id ="searchkc">
+               <option value="0">全部课程</option>
+
+              </select>
+           </div>
+          </div>
+        </div>
+                </form>
+            </div>
+        </fieldset>
+
+        <script type="text/html" id="toolbarDemo">
+            <div class="layui-btn-container">
+                <button class="layui-btn layui-btn-normal layui-btn-sm data-add-btn" lay-event="add"> 添加 </button>
+                <button class="layui-btn layui-btn-sm layui-btn-danger data-delete-btn" lay-event="delete"> 删除 </button>
+            </div>
+        </script>
+
+        <table class="layui-hide" id="currentTableId" lay-filter="currentTableFilter"></table>
+        <script type="text/html" id="currentTableBar">
+            <a class="layui-btn layui-btn-normal layui-btn-xs data-count-edit" lay-event="edit">编辑</a>
+            <a class="layui-btn layui-btn-xs layui-btn-danger data-count-delete" lay-event="delete">删除</a>
+        </script>
+
+    </div>
+</div>
+<script src="../../../templates/lib/layui-v2.6.3/layui.js" charset="utf-8"></script>
+<script src="../../../templates/js/dayjs.min.js" charset="utf-8"></script>
+<script>
+    function  changedate(time){
+
+        time = dayjs(time).format('YYYY年MM月DD日 HH时mm分')
+
+        return time
+    }
+    function getTableSelectIds(data){
+        var ids = [];
+        for (var i = 0; i <data.length ; i++) {
+            ids.push(data[i].id)
+        }
+        return ids.join(",")
+    }
+     var  flag =0;
+  layui.use(['form', 'table','element'], function () {
+        var $ = layui.jquery,
+            form = layui.form,
+            table = layui.table;
+
+        modelTable = table.render({
+            elem: '#currentTableId',
+            url: '../../../app/index/kcsj/',
+            toolbar: '#toolbarDemo',
+            defaultToolbar: ['filter', 'exports', 'print', {
+                title: '提示',
+                layEvent: 'LAYTABLE_TIPS',
+                icon: 'layui-icon-tips'
+            }],
+            cols: [[
+                {type: "checkbox", width: 50},
+                {field: 'id', width: 180, title: 'ID', sort: true},
+                {field: 'name', width: 200, title: '课程名称'},
+                {field: 'start_time', width: 200, title: '开始时间'},
+                {field: 'end_time', width: 200, title: '结束时间'},
+                {field: 'teacher', width: 200, title: '授课讲师'},
+                {title: '操作', minWidth: 150, toolbar: '#currentTableBar', align: "center"}
+            ]],
+            limits: [10, 15, 20, 25, 50, 100],
+            limit: 15,
+            page: true,
+            skin: 'line',
+            parseData:function (res){
+                let Course_time = JSON.parse(res.Course_time);
+                let teacher_name = JSON.parse(res.teacher_name);
+                let kc = JSON.parse(res.kc);
+                for (let i = 0; i < Course_time.length; i++) {
+                    Course_time[i].fields["start_time"] = changedate(Course_time[i].fields.start_time)
+                    Course_time[i].fields["end_time"] = changedate(Course_time[i].fields.end_time)
+                    let teacher_num =JSON.parse(JSON.stringify(Course_time[i].fields.teacher).split(",")) ;
+                    Course_time[i].fields["id"] = Course_time[i].pk;
+                    for (let j = 0; j < kc.length; j++) {
+                        if(kc[j].pk===Course_time[i].fields.course){
+                            Course_time[i].fields['name']=kc[j].fields.name;
+                        }
+                    }
+
+                    let tachaer_name=[];
+                    for(let num of teacher_num) {
+                        for (let x = 0; x < teacher_name.length; x++) {
+                            if (teacher_name[x].pk === num) {
+                                tachaer_name.push(teacher_name[x].fields.name);
+
+                            }
+                        }
+                    }
+
+                    Course_time[i].fields['teacher_id']= Course_time[i].fields.teacher
+
+                    Course_time[i].fields['teacher']=tachaer_name.join("，")
+
+                }
+                if (flag == 0){
+                    for (let j =0; j<kc.length;j++){
+                         $("#searchkc").append("<option value="+kc[j].pk+">"+kc[j].fields.name+"</option>");
+                }
+                    flag = 1;
+
+                }
+
+                form.render();
+                return{
+                    code:0,
+                    data:Course_time.map((e)=>{return e.fields}),
+                    msg:"",
+                    count:Course_time.length
+                }
+            }
+        });
+
+        // 监听搜索操作
+        form.on('select(searchkc)', function (data) {
+            let kcid = data.value;
+            console.log(kcid,123456)
+            modelTable.reload({
+                url: '/app/index/kcsj/',
+                method: "post",
+                where: {"kcid":kcid}
+            })
+
+
+
+        });
+
+
+
+
+        /**
+         * toolbar监听事件
+         */
+
+        table.on('toolbar(currentTableFilter)', function (obj) {
+            if (obj.event === 'add') {  // 监听添加操作
+                var index = layer.open({
+                    title: '添加用户',
+                    type: 2,
+                    shade: 0.2,
+                    maxmin:true,
+                    shadeClose: true,
+                    area: ['100%', '100%'],
+                    content: '../../../app/index/kcsj/add/',
+                });
+
+            } else if (obj.event === 'delete') {  // 监听删除操作
+                var checkStatus = table.checkStatus('currentTableId')
+                    , data = checkStatus.data;
+
+                  if (data.length == 0) {
+                    layer.msg('请选择条目', {icon: 2,time:2000});
+                    return false;
+                }
+               layer.confirm('真的删除[' + data.length + ']个账号吗?', function (index) {
+
+                    $.ajax({
+                    url:'/app/index/kcsj/delete/',
+                    method:'post',
+                    data:{delIds: getTableSelectIds(data)},
+                    dataType:'JSON',
+                   success:function(res){
+                        layer.msg('批量删除成功', {
+                            icon: 1, time: 2000
+                        }, function () {
+                               layer.close(index);
+                                modelTable.reload({});
+                        });
+
+                    },error:function (res){
+                         layer.msg('批量删除失败', {
+                            icon: 2, time: 2000
+                        });
+                        }
+                    }) ;
+                });
+            }
+        });
+
+        table.on('tool(currentTableFilter)', function (obj) {
+            var data = obj.data;
+            if (obj.event === 'edit') {
+                var index = layer.open({
+                    title: '编辑用户',
+                    type: 2,
+                    shade: 0.2,
+                    maxmin:true,
+                    shadeClose: true,
+                    area: ['100%', '100%'],
+                    content: '../../../app/index/kcsj/edit/',
+                    success:function(layero, index) {
+                        var iframe = window['layui-layer-iframe'+index];
+                         //调用子页面的全局函数
+                         iframe.child(data)
+                    }
+                });
+
+            } else if (obj.event === 'delete') {
+                data = obj.data
+                layer.confirm('真的删除[' + data.username + ']的账号吗?', function (index) {
+                    $.ajax({
+                    url:'/app/index/kcsj/delete/',
+                    method:'post',
+                    data:{delIds: data.id},
+                    dataType:'JSON',
+                    success:function(res){
+                        layer.msg('删除成功', {
+                            icon: 1, time: 2000
+                        }, function () {
+                               layer.close(index);
+                                modelTable.reload({});
+                        });
+
+                    },error:function (res){
+                         layer.msg('删除失败', {
+                            icon: 2, time: 2000
+                        });
+                        }
+                    }) ;
+
+                });
+            }
+        });
+
+
+
+
+
+
+    });
+</script>
+
+</body>
+</html>
